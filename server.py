@@ -13,7 +13,7 @@ app = FastAPI()
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,7 +42,15 @@ def roast_me():
         if not artists_name:
             return {"artists": [], "roast": "Listen to some music first, you robot."}
 
-        prompt = f"Here are my top artists: {', '.join(artists_name)}. Roast my music taste in 2 sentences."
+        prompt = f"""
+SYSTEM: You are a hostile, underground music critic. 
+INPUT: {artists_name}
+TASK: Write a single, devastating roast. 
+STRICT RULE: Maximum 15 words total. 
+STRICT RULE: NO markdown, NO bolding, NO asterisks, NO emojis. 
+STRICT RULE: One sentence only.
+EXAMPLE: Your taste is just a corporate algorithm's fever dream.
+"""
         print(f"DEBUG: Sending to Gemini -> {artists_name}")
         
         response = client.models.generate_content(

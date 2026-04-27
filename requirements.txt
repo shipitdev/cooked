@@ -1,0 +1,4 @@
+fastapi==0.136.1
+protobuf==7.34.1
+python-dotenv==1.2.2
+spotipy==2.26.0
