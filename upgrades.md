@@ -1,9 +1,12 @@
 # Upgrades
 
-Tiny things worth touching up when there is a spare minute:
+Small things to clean up before calling this production-ready:
 
-- tighten the loading text so it feels less placeholder-y
+- move any local-only config into env vars and double-check the defaults
+- add a basic health check for the server so deploys are easier to verify
+- make failed API calls show a useful message instead of just going quiet
 - add one empty state for when there is nothing to show yet
-- make the main action button a little easier to spot on first glance
-- give form errors a bit more breathing room
-- check the mobile spacing after the next UI pass
+- run through the main flow on mobile once, mostly spacing and button reach
+- trim any console logs that were only useful while building
+- write down the exact start commands somewhere obvious
+- do one clean install from scratch before shipping
