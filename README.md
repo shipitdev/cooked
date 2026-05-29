@@ -1,58 +1,144 @@
 # COOKED
 
-## Industrial Identity Analysis & Roast Engine
+COOKED is a small full-stack app that pulls a user's Spotify top artists and tracks, sends that taste profile to Gemini, and returns one short roast in a brutalist dashboard UI.
 
-An experimental full-stack interface that leverages the Spotify Web API and Gemini 1.5 Flash to perform automated personality deconstruction. The project explores **Intentional Friction** in UI/UX through a high-density, industrial-brutalist dashboard.
+The app also has a demo fallback, so it can still run locally without live Spotify or Gemini credentials.
 
----
+## Stack
 
-## 🏗️ Technical Architecture
+- Backend: Python, FastAPI, Spotipy, Google GenAI
+- Frontend: React, Vite, Tailwind CSS, Framer Motion
+- APIs: Spotify Web API, Gemini
 
-The system is designed with a decoupled architecture to ensure clear separation of concerns and low-latency data flow.
+## Project Structure
 
-### Backend [Python / FastAPI]
+```text
+.
+├── server.py
+├── requirements.txt
+├── frontend/
+│   ├── src/
+│   ├── package.json
+│   └── vite.config.js
+└── README.md
+```
 
-- **Asynchronous Execution:** Utilizes `asyncio` for non-blocking I/O during Spotify metric ingestion and Gemini API calls.
-- **Stateless Auth:** Implements OAuth 2.0 Authorization Code Flow via `Spotipy` for secure, scoped access to user metrics.
-- **Prompt Engineering:** Employs strict system instructions to enforce output constraints (15-word max, plain-text sanitization) ensuring a consistent "Gallery" aesthetic.
+## Environment
 
-### Frontend [React 19 / Tailwind v4]
+Create a `.env` file in the project root:
 
-- **Modular Grid Logic:** Built on a rigid 12-column grid system with hard borders and vertical labeling to emulate industrial hardware.
-- **Optimized Rendering:** Leverages `Framer Motion` for high-performance layout transitions and spring-based animations.
-- **Zero-Config Styling:** Early adoption of Tailwind v4 for CSS-variable-based theme management.
+```env
+SPOTIPY_CLIENT_ID=your_spotify_client_id
+SPOTIPY_CLIENT_SECRET=your_spotify_client_secret
+SPOTIPY_REDIRECT_URI=http://127.0.0.1:8080/callback
+GEMINI_API_KEY=your_gemini_api_key
 
----
+# optional
+DEMO_MODE=false
+GEMINI_MODEL=gemini-2.5-flash
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
 
-## 📡 Core Logic Flow
+For the frontend, create `frontend/.env` if the backend is not running on the default local URL:
 
-1. **Ingestion:** Backend pulls `user-top-read` data, extracting tokens for artists, genres, and frequency.
-2. **Sanitization:** Data is filtered to remove metadata noise before being injected into the LLM context window.
-3. **Synthesis:** Gemini 1.5 Flash generates a singular, hostile "Verdict" based on the ingested profile.
-4. **Rendering:** The frontend maps the JSON response into a technical module with real-time system status indicators.
+```env
+VITE_API_URL=http://127.0.0.1:8000
+```
 
----
+## Local Setup
 
-## 🛠️ Setup & Installation
+Install backend dependencies:
 
-### Prerequisites
+```bash
+pip install -r requirements.txt
+```
 
-- Python 3.10+
-- Node.js 18+
-- Spotify Developer Account (for Client ID/Secret)
-- Google AI Studio API Key
+Start the backend:
 
-### Backend Setup
+```bash
+uvicorn server:app --host 127.0.0.1 --port 8000 --reload
+```
 
-1. pip install -r requirements.txt
-2. Create a `.env` file:
-   ```env
-   SPOTIPY_CLIENT_ID='your_id'
-   SPOTIPY_CLIENT_SECRET='your_secret'
-   SPOTIPY_REDIRECT_URI='[http://127.0.0.1:8080/callback](http://127.0.0.1:8080/callback)'
-   GEMINI_API_KEY='your_key'
-   ```
-3. uvicorn main:app --port 8000 --reload
-4. Navigate to '/frontend' and Install dependencies (using legacy peer deps for v4 compatibility):
-   npm install --legacy-peer-deps
-   npm run dev
+Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+Start the frontend:
+
+```bash
+npm run dev
+```
+
+Open the Vite URL shown in the terminal.
+
+## API
+
+Health check:
+
+```http
+GET /health
+```
+
+Generate a roast:
+
+```http
+GET /roast-me?time_range=long_term&style=elitist
+```
+
+Supported `time_range` values:
+
+- `short_term`
+- `medium_term`
+- `long_term`
+
+Supported `style` values:
+
+- `elitist`
+- `condescending`
+- `boomer`
+
+## Demo Mode
+
+The backend falls back to mock artists, tracks, and roasts when credentials are missing or `DEMO_MODE=true`.
+
+That makes the UI testable without connecting a real Spotify account.
+
+## Production Notes
+
+- Set `VITE_API_URL` to the deployed backend URL.
+- Set `CORS_ORIGINS` to the deployed frontend URL instead of `*`.
+- Run the backend without `--reload`.
+- Keep `.env` out of git.
+- Make sure the Spotify redirect URI matches the environment you are using.
+
+Example backend command for a host that provides `$PORT`:
+
+```bash
+uvicorn server:app --host 0.0.0.0 --port $PORT
+```
+
+Build the frontend:
+
+```bash
+cd frontend
+npm run build
+```
+
+## Checks
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+Backend smoke check:
+
+```bash
+DEMO_MODE=true python3 -c 'from fastapi.testclient import TestClient; from server import app; c=TestClient(app); print(c.get("/health").json())'
+```
