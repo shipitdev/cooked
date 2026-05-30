@@ -1,5 +1,7 @@
 # COOKED
 
+small build note: @shipitdev
+
 COOKED is a small full-stack app that pulls a user's Spotify top artists and tracks, sends that taste profile to Gemini, and returns one short roast in a brutalist dashboard UI.
 
 The app also has a demo fallback, so it can still run locally without live Spotify or Gemini credentials.
