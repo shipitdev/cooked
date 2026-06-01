@@ -1,4 +1,6 @@
 import os
+import logging
+import random
 from fastapi import FastAPI
 from dotenv import load_dotenv
 import spotipy
@@ -9,26 +11,53 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 app = FastAPI()
+logger = logging.getLogger("cooked")
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv("CORS_ORIGINS", "*").split(",")
+        if origin.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
 scope = 'user-top-read'
 
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-    redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-    scope=scope
-))
+def is_missing(value: str | None, placeholder: str) -> bool:
+    return not value or value == placeholder
+
+
+def should_use_mock() -> bool:
+    return (
+        os.getenv("DEMO_MODE", "").lower() == "true" or
+        is_missing(os.getenv("SPOTIPY_CLIENT_ID"), "CLIENTID_HERE") or
+        is_missing(os.getenv("SPOTIPY_CLIENT_SECRET"), "SECRET_HERE") or
+        is_missing(os.getenv("SPOTIPY_REDIRECT_URI"), "REDIRECT_URI_HERE") or
+        is_missing(os.getenv("GEMINI_API_KEY"), "API_KEY_HERE")
+    )
+
+
+def spotify_client() -> spotipy.Spotify:
+    return spotipy.Spotify(auth_manager=SpotifyOAuth(
+        client_id=os.getenv("SPOTIPY_CLIENT_ID"),
+        client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
+        redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+        scope=scope
+    ))
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "app": "cooked",
+        "demo": should_use_mock()
+    }
 
 @app.get("/roast-me")
 def roast_me(time_range: str = 'long_term', style: str = 'elitist'):
@@ -37,15 +66,7 @@ def roast_me(time_range: str = 'long_term', style: str = 'elitist'):
     if style not in ['elitist', 'condescending', 'boomer']:
         style = 'elitist'
 
-    client_id = os.getenv("SPOTIPY_CLIENT_ID")
-    client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
-    gemini_key = os.getenv("GEMINI_API_KEY")
-
-    is_mock = (
-        not client_id or client_id == "CLIENTID_HERE" or
-        not client_secret or client_secret == "SECRET_HERE" or
-        not gemini_key or gemini_key == "API_KEY_HERE"
-    )
+    is_mock = should_use_mock()
 
     artists_name = []
     tracks_name = []
@@ -53,13 +74,14 @@ def roast_me(time_range: str = 'long_term', style: str = 'elitist'):
 
     if not is_mock:
         try:
+            sp = spotify_client()
             artists_results = sp.current_user_top_artists(limit=5, time_range=time_range)
             artists_name = [item['name'] for item in artists_results.get('items', [])]
 
             tracks_results = sp.current_user_top_tracks(limit=5, time_range=time_range)
             tracks_name = [item['name'] for item in tracks_results.get('items', [])]
         except Exception as e:
-            print(f"Spotify API failed: {e}. Falling back to mock data.")
+            logger.warning("Spotify API failed. Falling back to mock data. Error: %s", e)
             is_mock = True
 
     if is_mock:
@@ -73,7 +95,6 @@ def roast_me(time_range: str = 'long_term', style: str = 'elitist'):
             artists_name = ["Radiohead", "The Strokes", "Lana Del Rey", "Daft Punk", "Nirvana"]
             tracks_name = ["Karma Police", "Reptilia", "Born to Die", "Get Lucky", "Smells Like Teen Spirit"]
 
-        import random
         if style == 'elitist':
             roasts = [
                 f"Your taste is a curated starter pack for teenagers trying to look interesting on Reddit.",
@@ -114,16 +135,21 @@ STRICT RULE: NO markdown, NO bolding, NO asterisks, NO emojis.
 STRICT RULE: One sentence only.
 STRICT RULE: Be extremely specific to the inputs.
 """
-            print(f"DEBUG: Sending to Gemini -> style={style}, time_range={time_range}, inputs={artists_name + tracks_name}")
+            logger.info(
+                "Sending Gemini roast request: style=%s, time_range=%s, inputs=%s",
+                style,
+                time_range,
+                artists_name + tracks_name
+            )
             
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             response = client.models.generate_content(
-               model="gemini-2.5-flash",
+               model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
                contents=prompt
             )
             roast_text = response.text
         except Exception as ge:
-            print(f"Gemini API failed: {ge}. Using mock roast.")
-            import random
+            logger.warning("Gemini API failed. Using mock roast. Error: %s", ge)
             roast_text = "GEMINI ERROR: " + random.choice([
                 "YOUR taste is so bad it broke the artificial intelligence.",
                 "Even our advanced machine learning models cannot process this musical trash.",

@@ -2,10 +2,13 @@ import { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+
 function App() {
   const [artists, setArtists] = useState([]);
   const [tracks, setTracks] = useState([]);
   const [roast, setRoast] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState("long_term");
   const [criticStyle, setCriticStyle] = useState("elitist");
@@ -13,9 +16,10 @@ function App() {
 
   const getCooked = async () => {
     setLoading(true);
-    setRoast(""); 
+    setRoast("");
+    setError("");
     try {
-      const res = await axios.get("http://127.0.0.1:8000/roast-me", {
+      const res = await axios.get(`${API_BASE_URL}/roast-me`, {
         params: {
           time_range: timeRange,
           style: criticStyle
@@ -27,6 +31,10 @@ function App() {
       setRoast(cleanRoast);
       setDemoMode(!!res.data.demo);
     } catch {
+      setArtists([]);
+      setTracks([]);
+      setDemoMode(true);
+      setError("BACKEND_OFFLINE_RETRY_CONNECTION");
       setRoast("BACKEND_OFFLINE_RETRY_CONNECTION");
     } finally { 
       setLoading(false); 
@@ -113,7 +121,7 @@ function App() {
               Spotify Feed: {demoMode ? "DEMO_MODE (PLACEHOLDERS)" : "CONNECTED"} <br/>
               Target Period: {timeRange.toUpperCase()} <br/>
               Engine Mode: {criticStyle.toUpperCase()} <br/>
-              Status: {loading ? 'Active' : 'Idle'} <br/>
+              Status: {error || (loading ? 'Active' : 'Idle')} <br/>
               {demoMode ? (
                 <span className="text-amber-400 font-bold block mt-1">[WARN] SETUP .ENV FOR LIVE SPOTIFY</span>
               ) : (
